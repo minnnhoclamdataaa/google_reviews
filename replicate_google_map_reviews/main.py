@@ -1,4 +1,3 @@
-from os import name
 import time
 import pandas as pd
 from selenium import webdriver
@@ -12,58 +11,18 @@ SEARCH_KEYWORD = "khách sạn vũng tàu"
 
 
 def search_place(driver):
-    # click vào thanh search
-    import time
-    time.sleep(10)
+
+    time.sleep(5)
+
     search_box = driver.find_element(
         By.XPATH,
         "/html/body/div[1]/div[2]/div[9]/div[3]/div[1]/div[1]/div/div[1]/form/input"
     )
 
-    search_box.click()
     search_box.send_keys(SEARCH_KEYWORD)
     search_box.send_keys(Keys.ENTER)
 
-
     time.sleep(5)
-
-    # Source - https://stackoverflow.com/a/73792567
-# Posted by Prophet
-# Retrieved 2026-03-06, License - CC BY-SA 4.0
-
-
-
-
-
-
-    
-
-    # click kết quả đầu tiên
-    first_result = driver.find_element(By.CSS_SELECTOR, "a.hfpxzc")
-    first_result.click()
-
-    # from selenium.webdriver.common.by import By
-    # import time
-    time.sleep(5)
-    panel = driver.find_element(
-        By.XPATH,
-        "/html/body/div[1]/div[2]/div[9]/div[8]/div/div/div[1]/div[3]/div/div[1]/div/div/div[2]"
-    )
-
-    all_text = panel.text
-    
-    name = WebDriverWait(driver,10).until(
-        EC.presence_of_element_located((By.CLASS_NAME,"DUwDvf"))
-    ).text
-
-    print(name)
-
-    # print(all_text)
-    
-    
-    time.sleep(20)
-
-
 
 def open_reviews(driver):
 
@@ -79,23 +38,10 @@ def open_reviews(driver):
     time.sleep(5)
 
 
-def get_reviews(driver):
+def scroll_reviews(driver):
 
-    reviews = []
+    for _ in range(1):
 
-#     review_panel = driver.find_element(
-#     By.CSS_SELECTOR,
-#     "div.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde"
-# )
-#     for _ in range(50):
-
-#         driver.execute_script(
-#             "arguments[0].scrollTo(0, arguments[0].scrollHeight)",
-#             review_panel
-#         )
-#         time.sleep(2)
-
-    for _ in range(2):
         driver.execute_script("""
         document.querySelectorAll('*').forEach(function(el){
             if(el.scrollHeight > el.clientHeight){
@@ -103,26 +49,34 @@ def get_reviews(driver):
             }
         });
         """)
-        time.sleep(2)    
-    
-    
-    # time.sleep(60)
 
-            
+        time.sleep(2)
+
+
+def get_reviews(driver, hotel_name):
+
+    reviews = []
+
+    scroll_reviews(driver)
+
     review_elements = driver.find_elements(By.CSS_SELECTOR, "div.jftiEf")
-    
-    for r in review_elements:
-        print("Extracting review...")
-        print(r.text)
+    more_buttons = driver.find_elements(By.CSS_SELECTOR, "button.w8nwRe.kyuRq")
 
-        
+    for btn in more_buttons:
+        try:
+            driver.execute_script("arguments[0].click();", btn)
+            time.sleep(0.3)
+        except:
+            pass
+    for r in review_elements:
+
         try:
             name = r.find_element(By.CLASS_NAME, "d4r55").text
         except:
             name = None
 
         try:
-            rating = r.find_element(By.CLASS_NAME,"DU9Pgb").text
+            rating = r.find_element(By.CLASS_NAME, "DU9Pgb").text
         except:
             rating = None
 
@@ -138,7 +92,7 @@ def get_reviews(driver):
 
         reviews.append({
             "hotel_name": hotel_name,
-            "name": name,
+            "reviewer": name,
             "rating": rating,
             "date": date,
             "comment": comment
@@ -147,10 +101,47 @@ def get_reviews(driver):
     return reviews
 
 
+def crawl_places(driver):
+
+    all_reviews = []
+
+    results = driver.find_elements(By.CSS_SELECTOR, "a.hfpxzc")
+
+    print("Total results:", len(results))
+
+    for i in range(len(results)):
+
+        print("Processing result:", i)
+
+        results = driver.find_elements(By.CSS_SELECTOR, "a.hfpxzc")
+
+        results[i].click()
+
+        time.sleep(5)
+
+        hotel_name = WebDriverWait(driver,10).until(
+            EC.presence_of_element_located((By.CLASS_NAME,"DUwDvf"))
+        ).text
+
+        print("Hotel:", hotel_name)
+
+        try:
+            open_reviews(driver)
+
+            reviews = get_reviews(driver, hotel_name)
+
+            all_reviews.extend(reviews)
+
+        except:
+            print("No reviews found")
+
+        driver.back()
+        time.sleep(5)
+
+    return all_reviews
+
+
 def main():
-
-    chrome_options = Options()
-
 
     chrome_options = Options()
 
@@ -162,12 +153,10 @@ def main():
     driver = webdriver.Chrome(options=chrome_options)
 
     driver.get("https://www.google.com/maps")
-    time.sleep(5)
+
     search_place(driver)
 
-    open_reviews(driver)
-
-    reviews = get_reviews(driver)
+    reviews = crawl_places(driver)
 
     driver.quit()
 
@@ -180,3 +169,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
+    
+    
+    
+    
